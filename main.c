@@ -82,10 +82,10 @@ void* checkDir(void* arg){
     if(dent->d_type == 4){
       
        char* newName = (char*)malloc(sizeof(strlen(directory->ptPath)+strlen(dent->d_name))+2);      
-       strcat(newName,directory->ptPath);
+       strcpy(newName,directory->ptPath);
        strcat(newName,"/");
        strcat(newName,dent->d_name);      
-       printf("Opening directory... : %s\n",newName);
+     //  printf("Opening directory... : %s\n",newName);
        tPasser* newDirectory = malloc(sizeof(tPasser));
        newDirectory->ptPath = newName;        
        newDirectory->ptDent = dent;
@@ -94,7 +94,7 @@ void* checkDir(void* arg){
        directory->arrPosition+=1;
     }else if(dent->d_type==8){
        char* newName = (char*)malloc(sizeof(strlen(directory->ptPath)+strlen(dent->d_name))+2);      
-       strcat(newName,directory->ptPath);
+       strcpy(newName,directory->ptPath);
        strcat(newName,"/");
        strcat(newName,dent->d_name);      
        printf("Opening file... : %s\n",newName);
@@ -129,87 +129,119 @@ void* checkFile(void* arg){
     pthread_exit(NULL);
   }
   //Using the buffer check if the word is present in the tokens LL if it is increment the token for that word by 1 ... If it is not create a new node holding that string and insert
-  token* headToken = malloc(sizeof(token));
 
   char wordBuffer[MAXCHAR];
   int c;
   int i = 0;
+  int wordCount = 0;
+  //char* holder;
+  token* headToken = malloc(sizeof(token));
   do{
+    
     c = fgetc(fp);
-    //Found a word
-    if(isspace(c)){
-      printf("Got here %s\n",wordBuffer);
-      //First node
-      if(headToken->tokenName == NULL){
-        
-        headToken->tokenName= wordBuffer;
-        printf("Head Token: %s ",headToken->tokenName);
-        headToken->wordFrequency = 1;
-        token* temp = malloc(sizeof(token));
-        headToken->next = temp;
-        temp->prev = headToken;      
+    printf("CHAR: %c\n",c);
+    if(ispunct(c)){
+      continue;
+    }
+    //If we reach a space wordbuffer will contain a token
+    if(isspace(c) || c == EOF){
+      if(strcmp(wordBuffer,"\t") == 0){
+        printf("space found\n");
+        break;
       }
-      //If first node is fill traverse LL
+      wordCount++;
+      //printf("Word Buffer: %s word count: %d \n", wordBuffer,wordCount);
+    
+      if(wordCount == 1){
+        headToken->tokenName= malloc(sizeof(char)*strlen(wordBuffer));
+        strcpy(headToken->tokenName,wordBuffer);
+        headToken->wordFrequency = 1;
+        memset(wordBuffer,0,MAXCHAR);
+        //continue;
+      }
+    
+      //If wordcount !=1
       else{
-        token* ptr = headToken;
-        // A G U V 
-        // F        ^
-        while(ptr->next != NULL){
-          //If word already exists
-          if(strcmp(ptr->tokenName,wordBuffer) == 0){
-            ptr->wordFrequency++;
+        token *ptr = headToken;
+        while(ptr!=NULL){
+          //printf("CHECKING PTR %s\n", ptr->tokenName);
+          //Same word so we dont need to create a new token
+          if(strcmp(ptr->tokenName, wordBuffer)==0){
+            ptr->wordFrequency+=1;
+            break;
+          }else if(strcmp(ptr->tokenName, wordBuffer) > 0){
+            //if ptr->prev is NULL we are on headToken
+            if(strcmp(ptr->tokenName,headToken->tokenName) == 0){
+              token* temp = malloc(sizeof(token));
+              temp->tokenName = (char*)malloc(sizeof(char)*strlen(wordBuffer));
+              strcpy(temp->tokenName,wordBuffer);
+              //printf("REPLACING HEAD %s\n", temp->tokenName);
+              temp -> wordFrequency = 1;
+              ptr->prev = temp;
+              temp->next = ptr;
+              headToken = temp;
+              memset(wordBuffer, 0, MAXCHAR);
+              break;
+            }else{
+              //printf("REPLACING RANDO %s\n",ptr->tokenName);
+              token* temp = ptr->prev;
+              token* newNode = malloc(sizeof(token));
+              newNode->tokenName = (char*)malloc(sizeof(char)*strlen(wordBuffer));
+              strcpy(newNode->tokenName,wordBuffer);
+              newNode->wordFrequency = 1;
+              temp->next = newNode;
+              newNode->prev = temp;
+              newNode->next = ptr;
+              ptr->prev = newNode;
+              memset(wordBuffer,0,MAXCHAR);
+              break;
+            }
+          }else if(ptr->next == NULL){
+            token* newNode = malloc(sizeof(token));
+            newNode->tokenName= (char*)malloc(sizeof(char)*strlen(wordBuffer));
+            strcpy(newNode->tokenName,wordBuffer);
+            newNode -> wordFrequency = 1;
+            ptr->next = newNode;
+            newNode->prev = ptr;
+            memset(wordBuffer,0,MAXCHAR);
             break;
           }
-          if(ptr->next==NULL){
-            
-          }
-          //Perform insertion
-          else if(strcmp(wordBuffer,ptr->tokenName)>0){
-            token* newNode = malloc(sizeof(token));
-            newNode->tokenName=wordBuffer;
-            newNode->wordFrequency=1;
-            token* temp = ptr->next;
-            ptr->next = newNode;
-            temp->prev = newNode;
-            newNode->next = temp;
-            newNode->prev = ptr;
-            //Greater then insert after pointer    
-          }
+          ptr = ptr->next;
         }
-       
-        //apple bat
-        
+
       }
       i = 0;
-      memset(wordBuffer, 0, MAXCHAR);
+      memset(wordBuffer,0,MAXCHAR);
     }else{
       wordBuffer[i] = c;
       i++;
-    }  
-    if(feof(fp)){
+    }
+    if(feof(fp) || c == EOF){
       break;
     }
-   
-  }while(1);
-  //Test print out tokens
- 
-  printf(" \n");
-  token* tmpPtr = headToken;
-  while(tmpPtr!=NULL){
-    //printf("%s -> ", tmpPtr->tokenName);
-    tmpPtr=tmpPtr->next;
-  }
+  }while(1); 
+
+
 
   fclose(fp);
+
+  token* printer = headToken;
+  while(printer != NULL){
+    printf("%s (%f) -> \n",printer->tokenName,printer->wordFrequency);
+    printer = printer->next;
+  }
+  printf("\n");
   //To insert traverse the LL and using strcmp look for a place to insert the new node... adjust the double LL pointers as necesary... have two pointers for the  traversal
   
   //printf("File path: %s\n",myFile->ptPath);
   /*struct dirent *dent = myFile->ptDent;
   char* path = myFile->ptPath;*/
-
+  printf("Head Token: %s \n",headToken->tokenName);
+  printf("Word count: %d",wordCount);
   pthread_exit(NULL);
 
 }
+
 /*
 typedef struct File{
 char* fileName;
@@ -258,7 +290,7 @@ char* start = malloc(sizeof(strlen(argv[1])+3));
 start[0]='.';
 start[1]='/';
 //printf("name: %s\n",dent->d_name);
-strcat(start, argv[1]);
+strcpy(start, argv[1]);
 starter ->ptDent = dentt;
 starter ->ptPath = start;
 starter->arrPosition=0;
